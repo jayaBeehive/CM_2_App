@@ -1,0 +1,215 @@
+<div id="invoicePrintSection" style="width: 880px; margin: auto; font-family: Arial">
+    <h3 style="text-align: center">TAX INVOICE</h3>
+
+    <!-- ================= HEADER SECTION ================= -->
+    <table width="100%" border="1" cellspacing="0" cellpadding="0" style="border-collapse: collapse; font-size: 10px">
+        <tr>
+            <!-- LEFT SIDE (COMPANY + BUYER INFO) -->
+            <td width="60%" style="vertical-align: top; padding: 6px">
+                <strong>{{ company.name }}</strong
+                ><br />
+                {{ company.address }},<br />
+                {{ company.city }}<br />
+                GSTIN/UIN: {{ company.gstno }}<br />
+                State Name: {{ company.state }}, Code: {{ company.statecode }}<br />
+                E-Mail : {{ company.email }}
+                <br />
+
+                <hr style="margin: 5px 0" />
+
+                <strong>Buyer (Bill to)</strong><br /><br />
+
+                <strong>{{ customer.name }}</strong
+                ><br />
+                {{ customer.address }}<br />
+                Mobile: {{ customer.mobile }}<br />
+                <br />
+
+                GSTIN/UIN : {{ customer.gstin || '-' }}<br />
+                State Name : {{ customer.state || '-' }}
+            </td>
+
+            <!-- RIGHT SECTION (INVOICE DETAILS) -->
+            <td width="40%" style="vertical-align: top">
+                <table width="100%" border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse">
+                    <tr>
+                        <td><strong>Invoice No.</strong></td>
+                        <td>{{ invoice.no }}</td>
+                    </tr>
+
+                    <tr>
+                        <td><strong>Dated</strong></td>
+                        <td>{{ invoice.transactiondate | date: 'dd-MMM-yy' }}</td>
+                    </tr>
+
+                    <tr>
+                        <td>Delivery Note</td>
+                        <td>-</td>
+                    </tr>
+
+                    <tr>
+                        <td><strong>Mode of Payment</strong></td>
+                        <td>
+                            <strong>{{ invoice.paymode }}</strong>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>Reference No. & Date</td>
+                        <td>{{ invoice.transactionid }} dt. {{ invoice.transactiondate | date: 'dd-MMM-yy' }}</td>
+                    </tr>
+
+                    <tr>
+                        <td>Buyer's Order No.</td>
+                        <td>-</td>
+                    </tr>
+
+                    <tr>
+                        <td>Dated</td>
+                        <td>-</td>
+                    </tr>
+
+                    <tr>
+                        <td>Dispatch Doc No.</td>
+                        <td>-</td>
+                    </tr>
+
+                    <tr>
+                        <td>Delivery Note Date</td>
+                        <td>-</td>
+                    </tr>
+
+                    <tr>
+                        <td>Dispatched through</td>
+                        <td>-</td>
+                    </tr>
+
+                    <tr>
+                        <td>Destination</td>
+                        <td>-</td>
+                    </tr>
+
+                    <tr>
+                        <td>Terms of Delivery</td>
+                        <td>-</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <!-- ================= ITEM TABLE ================= -->
+    <table width="100%" border="1" cellspacing="0" cellpadding="6" style="border-collapse: collapse; font-size: 10px; margin-top: 10px">
+        <thead>
+            <tr style="text-align: center; font-weight: bold">
+                <td>Sl No.</td>
+                <td>Description of Goods</td>
+                <td>HSN/SAC</td>
+                <td>Quantity</td>
+                <td>Rate</td>
+                <td>per</td>
+                <td>Disc %</td>
+                <td>Amount</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr *ngFor="let i of items; let idx=index" style="text-align: center">
+                <td>{{ idx + 1 }}</td>
+                <td>{{ i.ItemName }}</td>
+                <td>{{ i.hsncode }}</td>
+                <td>{{ i.Quantity }} {{ i.UomName || i.UOMName }}</td>
+                <td>₹{{ i.MRP | number: '1.2-2' }}</td>
+                <td>{{ i.UomName || i.UOMName }}</td>
+                <td>{{ i.discount || '' }}</td>
+                <td>₹{{ i.totalPayable | number: '1.2-2' }}</td>
+            </tr>
+
+            <!-- SUB TOTAL -->
+            <tr>
+                <td colspan="7" style="text-align: right; font-weight: bold">Total</td>
+                <td>₹{{ invoice.totalsale | number: '1.2-2' }}</td>
+            </tr>
+            <tr>
+                <td colspan="7" style="text-align: right; font-weight: bold">Discount {{ invoice.disctype ? invoice.overalldiscount + '%' : '' }}</td>
+
+                <td>{{ invoice.disctype ? '₹' : '' }}{{ invoice.disctype ? invoice.overalldiscount : '₹' + invoice.discountvalueper }}</td>
+            </tr>
+
+            <!-- ROUND OFF -->
+            <tr>
+                <td colspan="7" style="text-align: right"><b>ROUND OFF +/-</b></td>
+                <td>{{ invoice.roundoff | number: '1.2-2' }}</td>
+            </tr>
+        </tbody>
+
+        <!-- GRAND TOTAL -->
+        <tfoot>
+            <tr style="font-weight: bold">
+                <td colspan="7" align="right" style="text-align: right; font-weight: bold">Grand Total</td>
+                <td style="font-weight: bold">₹{{ invoice.totalpayable | number: '1.2-2' }}</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <!-- ================= AMOUNT IN WORDS ================= -->
+    <div style="padding: 10px; font-size: 10px">
+        <strong>Amount Chargeable (in words):</strong>
+        <!-- {{ amountInWords }} -->
+        -
+    </div>
+
+    <!-- ================= GST SUMMARY ================= -->
+    <table width="100%" border="1" cellspacing="0" cellpadding="6" style="border-collapse: collapse; font-size: 10px; margin-top: 10px">
+        <tr style="font-weight: bold; text-align: center">
+            <td>Taxable Value</td>
+            <td>Rate</td>
+            <td>CGST Amount</td>
+            <td>Rate</td>
+            <td>SGST Amount</td>
+            <td>Total Tax Amount</td>
+        </tr>
+
+        <tr style="text-align: center">
+            <td>₹{{ tax.amount_before_tax | number: '1.2-2' }}</td>
+            <td>9%</td>
+            <td>₹{{ tax.cgst_9 | number: '1.2-2' }}</td>
+            <td>9%</td>
+            <td>₹{{ tax.sgst_9 | number: '1.2-2' }}</td>
+            <td>₹{{ tax.tax_18 | number: '1.2-2' }}</td>
+        </tr>
+    </table>
+
+    <!-- ================= BANK DETAILS ================= -->
+    <div>
+        <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse: collapse; font-size: 10px; margin-top: 5px; border: none">
+            <tr>
+                <!-- LEFT COLUMN -->
+                <td width="70%" style="vertical-align: top; padding: 0; border: none">
+                    <div style="margin-bottom: 10px">
+                        <strong>Tax Amount (in words):</strong>
+                        <!-- {{ taxAmountInWords }} -->
+                        -
+                    </div>
+
+                    <div>
+                        <strong>Company's Bank Details</strong><br />
+                        Bank Name: <b>{{ bank.name }}</b
+                        ><br />
+                        A/c No.: {{ bank.accountno }}<br />
+                        Branch: {{ bank.branchname }}<br />
+                        IFSC: {{ bank.ifsc }}<br />
+                        PAN: <b>{{ bank.pan }}</b>
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <!-- RIGHT COLUMN (Signature) -->
+                <td width="30%" style="padding: 0; border: none; text-align: right">
+                    <div style="display: flex; flex-direction: column; justify-content: flex-end"><strong>Authorized Signatory</strong><br /></div>
+                </td>
+            </tr>
+        </table>
+        <div style="margin-top: 2px; font-size: 10px"><strong>Declaration:</strong> This invoice shows the actual price of goods and all particulars are true.</div>
+    </div>
+</div>

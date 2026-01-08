@@ -1,5 +1,5 @@
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, ElementRef, HostListener, QueryList, ViewChild, ViewChildren, inject } from '@angular/core';
+import { Component, ElementRef, HostListener, QueryList, ViewChild, ViewChildren, inject, ViewContainerRef } from '@angular/core';
 import { AbstractControl, FormArray, FormBuilder, FormControl, FormGroup, FormsModule, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { ChipModule } from 'primeng/chip';
@@ -25,6 +25,8 @@ import { AuthService } from '@/core/services/auth.service';
 import { OrderService } from '@/core/services/order.service';
 import { ShareService } from '@/core/services/shared.service';
 import { Router } from '@angular/router';
+import { PrintComponent } from '@/shared/components/print/print.component';
+import { PrintService } from '@/shared/components/print/print.service';
 // import { NgxPrintModule } from 'ngx-print';
 
 @Component({
@@ -201,7 +203,9 @@ export class SalesComponent {
         private orderService: OrderService,
         public datepipe: DatePipe,
         private sharedService: ShareService,
-        private route: Router
+        private route: Router,
+        private vcr: ViewContainerRef,
+        private printService: PrintService
     ) {}
 
     ngOnInit(): void {
@@ -1202,38 +1206,78 @@ export class SalesComponent {
     }
 
     printInvoice() {
-        const printContents = document.getElementById('invoicePrintSection')?.innerHTML;
-        if (!printContents) return;
-        const popupWindow = window.open('', '_blank', 'width=900,height=1500');
-        popupWindow!.document.open();
-        popupWindow!.document.write(`
-     <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <style>
-                           @page {
-                        margin: 0;
-                        size: auto;
-                    }
-                            /* Your print styles here */
-                            body { font-family: Arial, sans-serif; }
-                            /* Add more styles as needed */
-                        </style>
-                    </head>
-                    <body>
-                        ${printContents}
-                        <script>
-                            window.onload = function() {
-                                window.print();
-                                window.onafterprint = function() {
-                                    window.close();
-                                };
-                            };
-                        </script>
-                    </body>
-                    </html>
-  `);
+        const ref = this.vcr.createComponent(PrintComponent);
+        const printData = this.preparePrintData();
+        ref.instance.company = printData.company;
+        ref.instance.customer = printData.customer;
+        ref.instance.invoice = printData.invoice;
+        ref.instance.items = printData.items;
+        ref.instance.tax = printData.tax;
+        ref.instance.bank = printData.bank;
+        setTimeout(() => {
+            const html = ref.location.nativeElement.innerHTML;
+            this.printService.printHtml(html, 'Tax Invoice');
+            ref.destroy();
+        });
+    }
 
-        popupWindow!.document.close();
+    private preparePrintData() {
+        const form = this.salesForm.value;
+
+        return {
+            company: {
+            name: this.companyName,
+            address: this.companyAddress,
+            city: this.companycity,
+            state: this.companystate,
+            statecode: this.statecode,
+            gstno: this.companygstno,
+            email: this.companyemail
+            },
+
+            customer: {
+            name: form.p_customername,
+            address: '',
+            mobile: form.p_mobileno,
+            gstin: form.p_gsttran ? form.p_gsttran : '-',
+            state: ''
+            },
+
+            invoice: {
+            no: form.p_billno,
+            transactionid: form.p_transactionid,
+            transactiondate: form.p_transactiondate,
+            paymode: form.p_paymode,
+            totalsale: form.p_totalsale,
+            totalpayable: form.p_totalpayable,
+            discountvalueper: form.discountvalueper,
+            roundoff: form.p_roundoff
+            },
+
+            items: form.p_sale.map((i: any) => ({
+            ItemName: i.ItemName,
+            hsncode: i.hsncode,
+            Quantity: i.Quantity,
+            UomName: i.UomName,
+            MRP: i.MRP,
+            discount: '',
+            totalPayable: i.totalPayable
+            })),
+
+            tax: {
+            amount_before_tax: form.amount_before_tax,
+            cgst_9: form.cgst_9,
+            sgst_9: form.sgst_9,
+            tax_18: form.tax_18
+            },
+
+            bank: {
+            name: this.bankname,
+            accountno: this.accountno,
+            branchname: this.branchname,
+            ifsc: this.ifsc,
+            pan: this.pan
+            }
+        };
     }
 }

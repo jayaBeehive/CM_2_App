@@ -1,5 +1,5 @@
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, ViewChild } from '@angular/core';
+import { Component, ViewChild, ViewContainerRef } from '@angular/core';
 import { AbstractControl, FormArray, FormBuilder, FormControl, FormGroup, FormsModule, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { ChipModule } from 'primeng/chip';
@@ -26,6 +26,8 @@ import { Paginator } from 'primeng/paginator';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '@/core/services/auth.service';
 import { ShareService } from '@/core/services/shared.service';
+import { PrintComponent } from '@/shared/components/print/print.component';
+import { PrintService } from '@/shared/components/print/print.service';
 interface Product {
     name: string;
     price: string;
@@ -113,7 +115,9 @@ export class InvoiceComponent {
         public datepipe: DatePipe,
         private router: Router,
         private sharedService: ShareService,
-        private confirmationService: ConfirmationService
+        private confirmationService: ConfirmationService,
+        private vcr: ViewContainerRef,
+        private printService: PrintService
     ) {}
 
     ngOnInit(): void {
@@ -492,98 +496,117 @@ export class InvoiceComponent {
         if (!row || !row.transactiontype) return false;
         return row.transactiontype.toUpperCase() === 'SALE';
     }
+    
     printInvoice(row: any) {
-        // Create payload FIRST
+        if (!row?.invoice_no) return;
+
         const payload = {
             p_username: 'admin',
             p_returntype: 'SALEPRINT',
             p_returnvalue: row.invoice_no
         };
-        // Make API call
-        this.inventoryService.Getreturndropdowndetails(payload).subscribe({
-            next: (res) => {
-                console.log('API Result:', res.data);
-                if (Array.isArray(res.data) && res.data.length > 0) {
-                    this.invoiceData = res.data;
-                    this.hsncode = res.data[0].hsncode;
-                }
 
-                this.populateInvoiceForm(res.data[0]);
-                setTimeout(() => {
-                    this.openPrintWindow();
-                }, 100);
-            },
-            error: (err) => {
-                console.error('API Error:', err);
+        this.inventoryService.Getreturndropdowndetails(payload).subscribe({
+            next: (res: any) => {
+            if (Array.isArray(res.data) && res.data.length > 0) {
+                this.invoiceData = res.data;
+                this.hsncode = res.data[0].hsncode;
+            }
+            if (!Array.isArray(res.data) || res.data.length === 0) {
                 this.messageService.add({
-                    severity: 'error',
-                    summary: 'Error',
-                    detail: 'Failed to load invoice data'
+                severity: 'warn',
+                summary: 'No Data',
+                detail: 'Invoice data not found'
                 });
+                return;
+            }
+
+            this.preparePrintData(res.data);
+            },
+            error: () => {
+            this.messageService.add({
+                severity: 'error',
+                summary: 'Error',
+                detail: 'Failed to load invoice data'
+            });
             }
         });
     }
 
-    private populateInvoiceForm(data: any) {
-        if (!data) return;
-        this.invoiceForm.patchValue({
-            p_billno: data.billno || '',
-            p_transactiondate: data.transactiondate || '',
-            p_transactionid: data.transactionid || '',
-            p_customername: data.customername || '',
-            p_mobileno: data.mobileno || '',
-            p_totalsale: data.totalsale || 0,
-            p_totalpayable: data.totalpayable || 0,
-            p_disctype: data.discounttype || 'N',
-            p_overalldiscount: data.discount || 0,
-            discountvalueper: data.discount || 0,
-            p_roundoff: data.roundoff || 0,
-            amount_before_tax: data.amount_before_tax || 0,
-            cgst_9: data.cgst_9 || 0,
-            sgst_9: data.sgst_9 || 0,
-            tax_18: data.tax_18 || 0,
-            p_totalqty: data.quantity || 0
-        });
-    }
-    private openPrintWindow() {
-        // Now open print window AFTER getting data
-        const printContents = document.getElementById('invoicePrintSection')?.innerHTML;
-        if (!printContents) {
-            console.error('Invoice print section not found');
+    private preparePrintData(data: any[]) {
+        if (!data || data.length === 0) return;
+
+        if (!this.companyName) {
+            this.OnGetProfile();
+            setTimeout(() => this.preparePrintData(data), 300);
             return;
         }
 
-        const popupWindow = window.open('', '_blank', 'width=900,height=1500');
-        if (popupWindow) {
-            popupWindow.document.open();
-            popupWindow.document.write(`
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <style>
-                          @page {
-                        margin: 0;
-                        size: auto;
-                    }
-                            /* Your print styles here */
-                            body { font-family: Arial, sans-serif; }
-                            /* Add more styles as needed */
-                        </style>
-                    </head>
-                    <body>
-                        ${printContents}
-                        <script>
-                            window.onload = function() {
-                                window.print();
-                                window.onafterprint = function() {
-                                    window.close();
-                                };
-                            };
-                        </script>
-                    </body>
-                    </html>
-                `);
-            popupWindow.document.close();
-        }
+        const header = data[0];
+        const ref = this.vcr.createComponent(PrintComponent);
+
+        Object.assign(ref.instance, {
+            company: {
+                name: this.companyName,
+                address: this.companyAddress,
+                city: this.companycity,
+                state: this.companystate,
+                statecode: this.statecode,
+                gstno: this.companygstno,
+                email: this.companyemail
+            },
+
+            customer: {
+                name: header.customername,
+                address: '',
+                mobile: header.mobileno,
+                gstin: '',
+                state: ''
+            },
+
+            invoice: {
+                no: header.billno,
+                transactionid: header.transactionid,
+                transactiondate: header.transactiondate,
+                paymode: header.paymode,
+                totalsale: header.totalsale,
+                totalpayable: header.totalpayable,
+                discountvalueper: header.discountvalueper,
+                roundoff: header.roundoff
+            },
+
+            items: data.map((i: any, idx: number) => ({
+                ItemName: i.itemname,
+                hsncode: i.hsncode,
+                Quantity: i.quantity,
+                UomName: i.uomname,
+                MRP: i.mrp,
+                discount: '',
+                totalPayable: i.quantity * i.mrp
+            })),
+
+            tax: {
+                amount_before_tax: header.amount_before_tax,
+                cgst_9: header.cgst_9,
+                sgst_9: header.sgst_9,
+                tax_18: header.tax_18
+            },
+
+            bank: {
+                name: this.bankname,
+                accountno: this.accountno,
+                branchname: this.branchname,
+                ifsc: this.ifsc,
+                pan: this.pan
+            }
+        });
+
+        ref.changeDetectorRef.detectChanges();
+
+        const html = ref.location.nativeElement.innerHTML;
+        this.printService.printHtml(html, 'Tax Invoice');
+
+        ref.destroy();
     }
+
 }
